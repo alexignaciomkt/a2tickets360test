@@ -18,7 +18,7 @@ import {
 } from '@/components/ui/form';
 import { useToast } from '@/components/ui/use-toast';
 import { api } from '@/services/api';
-import { Mail, User, Lock, Phone, CreditCard, Loader2, CheckCircle, ChevronDown, Rocket, Shield, BarChart3, Calendar, Sparkles, Users } from 'lucide-react';
+import { Mail, User, Lock, Phone, CreditCard, Loader2, CheckCircle, ChevronDown, Rocket, Shield, BarChart3, Calendar, Sparkles, Users, Camera } from 'lucide-react';
 
 const registerSchema = z.object({
   name: z.string().min(3, 'Nome deve ter pelo menos 3 caracteres'),
@@ -27,6 +27,8 @@ const registerSchema = z.object({
     .min(8, 'A senha deve ter pelo menos 8 caracteres'),
   mobilePhone: z.string().min(10, 'Telefone inválido'),
   cpfCnpj: z.string().min(11, 'CPF ou CNPJ inválido'),
+  slug: z.string().min(3, 'O link deve ter pelo menos 3 caracteres').regex(/^[a-z0-0-]+$/, 'Use apenas letras minúsculas, números e hifens'),
+  bannerUrl: z.string().optional(),
 });
 
 type RegisterFormData = z.infer<typeof registerSchema>;
@@ -36,6 +38,7 @@ const RegisterOrganizerPage = () => {
   const { toast } = useToast();
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [isSuccess, setIsSuccess] = useState(false);
+  const [isUploading, setIsUploading] = useState(false);
 
   const form = useForm<RegisterFormData>({
     resolver: zodResolver(registerSchema),
@@ -45,8 +48,51 @@ const RegisterOrganizerPage = () => {
       password: '',
       mobilePhone: '',
       cpfCnpj: '',
+      slug: '',
+      bannerUrl: '',
     },
   });
+
+  // Gerar slug automático ao digitar o nome
+  const onNameChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const name = e.target.value;
+    form.setValue('name', name);
+
+    // Se o slug ainda não foi editado manualmente ou está vazio
+    const currentSlug = form.getValues('slug');
+    const autoSlug = name.toLowerCase()
+      .trim()
+      .replace(/[^\w\s-]/g, '')
+      .replace(/[\s_-]+/g, '-')
+      .replace(/^-+|-+$/g, '');
+
+    form.setValue('slug', autoSlug);
+  };
+
+  const handleFileUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+
+    setIsUploading(true);
+    try {
+      const formData = new FormData();
+      formData.append('file', file);
+      const res = await api.post('/api/upload', formData);
+      form.setValue('bannerUrl', res.url);
+      toast({
+        title: 'Capa enviada!',
+        description: 'Sua foto de capa foi carregada com sucesso.',
+      });
+    } catch (error: any) {
+      toast({
+        variant: 'destructive',
+        title: 'Erro no upload',
+        description: 'Não foi possível carregar a imagem.',
+      });
+    } finally {
+      setIsUploading(false);
+    }
+  };
 
   const onSubmit = async (data: RegisterFormData) => {
     setIsSubmitting(true);
@@ -160,9 +206,36 @@ const RegisterOrganizerPage = () => {
                                 <FormControl>
                                   <div className="relative">
                                     <User className="absolute left-4 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-600" />
-                                    <Input placeholder="A2 Produções" className="h-14 bg-[#111] border-white/5 rounded-2xl pl-12 text-white placeholder:text-gray-700 focus:ring-indigo-500" {...field} />
+                                    <Input
+                                      placeholder="A2 Produções"
+                                      className="h-14 bg-[#111] border-white/5 rounded-2xl pl-12 text-white placeholder:text-gray-700 focus:ring-indigo-500"
+                                      {...field}
+                                      onChange={onNameChange}
+                                    />
                                   </div>
                                 </FormControl>
+                                <FormMessage />
+                              </FormItem>
+                            )}
+                          />
+
+                          <FormField
+                            control={form.control}
+                            name="slug"
+                            render={({ field }) => (
+                              <FormItem className="md:col-span-2">
+                                <FormLabel className="text-gray-400 font-bold uppercase text-[10px] tracking-widest pl-1">Link da sua Página (Slug)</FormLabel>
+                                <div className="flex gap-2">
+                                  <div className="flex-1 relative">
+                                    <span className="absolute left-4 top-1/2 -translate-y-1/2 text-gray-600 text-sm font-bold">ticketera.com/produtor/</span>
+                                    <Input
+                                      placeholder="sua-produtora"
+                                      className="h-14 bg-[#111] border-white/5 rounded-2xl pl-[165px] text-indigo-400 font-bold placeholder:text-gray-700 focus:ring-indigo-500"
+                                      {...field}
+                                    />
+                                  </div>
+                                </div>
+                                <p className="text-[10px] text-gray-500 pl-1 mt-1 font-medium">Este será o endereço público da sua empresa na plataforma.</p>
                                 <FormMessage />
                               </FormItem>
                             )}
@@ -218,6 +291,26 @@ const RegisterOrganizerPage = () => {
                               </FormItem>
                             )}
                           />
+
+                          <div className="md:col-span-2">
+                            <FormLabel className="text-gray-400 font-bold uppercase text-[10px] tracking-widest pl-1 mb-2 block">Foto de Capa (Opcional)</FormLabel>
+                            <div className="relative w-full h-32 bg-[#111] border border-dashed border-white/10 rounded-2xl overflow-hidden group hover:border-indigo-500/50 transition-all">
+                              {form.watch('bannerUrl') ? (
+                                <img src={form.watch('bannerUrl')} className="w-full h-full object-cover" alt="Banner Preview" />
+                              ) : (
+                                <div className="flex flex-col items-center justify-center h-full text-gray-600">
+                                  <Camera className="w-8 h-8 mb-2" />
+                                  <span className="text-[10px] font-bold uppercase tracking-widest">Enviar Capa</span>
+                                </div>
+                              )}
+                              <input
+                                type="file"
+                                className="absolute inset-0 opacity-0 cursor-pointer"
+                                onChange={handleFileUpload}
+                                accept="image/*"
+                              />
+                            </div>
+                          </div>
 
                           <FormField
                             control={form.control}

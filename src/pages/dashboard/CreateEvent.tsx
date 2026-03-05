@@ -164,10 +164,20 @@ const CreateEvent = () => {
           name: ticket.name, price: ticket.price, quantity: ticket.quantity, category: ticket.category,
         });
       }
-      toast({
-        title: status === 'published' ? '🚀 Evento publicado!' : '💾 Rascunho salvo!',
-        description: status === 'published' ? 'Seu evento está no ar!' : 'Você pode continuar editando.',
-      });
+
+      // The backend returns forcedToPending=true if the organizer's profile was incomplete
+      const wasForcedToPending = (newEvent as any).forcedToPending === true;
+
+      if (status === 'draft') {
+        toast({ title: '💾 Rascunho salvo!', description: 'Você pode continuar editando.' });
+      } else if (wasForcedToPending) {
+        toast({
+          title: '⏳ Evento enviado para análise!',
+          description: 'Seu cadastro ainda está incompleto. O evento será publicado após aprovação do Admin Master.',
+        });
+      } else {
+        toast({ title: '🚀 Evento publicado!', description: 'Seu evento está no ar!' });
+      }
       navigate('/organizer/events');
     } catch (error: any) {
       toast({ variant: 'destructive', title: 'Erro ao criar evento', description: error.message || 'Tente novamente.' });
@@ -270,7 +280,7 @@ const CreateEvent = () => {
         <label className="text-sm font-medium text-gray-700 mb-2 block">Banner / Arte do Evento</label>
         <div className="border-2 border-dashed border-gray-300 rounded-xl p-6 text-center hover:border-indigo-400 transition-colors relative cursor-pointer group bg-gray-50">
           <input type="file" accept="image/*" onChange={handleImageChange}
-            className="absolute inset-0 w-full h-full opacity-0 cursor-pointer" />
+            className="absolute inset-0 w-full h-full opacity-0 cursor-pointer z-10" />
           {previewUrl ? (
             <div className="relative h-56 w-full rounded-lg overflow-hidden">
               <img src={previewUrl} alt="Preview" className="h-full w-full object-cover" />
@@ -463,7 +473,9 @@ const CreateEvent = () => {
         <Button type="button" onClick={() => handleSubmit('published')} disabled={isSubmitting}
           className="flex-1 bg-gradient-to-r from-indigo-600 to-purple-600 hover:from-indigo-700 hover:to-purple-700 text-white gap-2 h-12 shadow-lg shadow-indigo-200">
           <Send className="h-4 w-4" />
-          {isSubmitting ? 'Publicando...' : 'Publicar Evento'}
+          {isSubmitting
+            ? (user?.profileComplete ? 'Publicando...' : 'Enviando...')
+            : (user?.profileComplete ? 'Publicar Evento' : 'Solicitar Publicação')}
         </Button>
       </div>
     </div>

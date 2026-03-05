@@ -85,7 +85,7 @@ export const events = pgTable('events', {
     locationState: text('location_state'),
     locationPostalCode: text('location_postal_code'),
     capacity: integer('capacity').notNull(),
-    status: text('status', { enum: ['draft', 'published', 'active', 'completed', 'cancelled'] }).default('draft'),
+    status: text('status', { enum: ['draft', 'pending', 'published', 'active', 'completed', 'cancelled'] }).default('draft'),
     imageUrl: text('image_url'),
     floorPlanUrl: text('floor_plan_url'),
     isFeatured: boolean('is_featured').default(false),

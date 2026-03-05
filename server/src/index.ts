@@ -166,24 +166,32 @@ app.use('/uploads/*', serveStatic({ root: './' }));
 // Endpoint de Upload
 app.post('/api/upload', async (c: Context) => {
     try {
+        console.log('[UPLOAD] Iniciando recebimento de arquivo...');
         const body = await c.req.parseBody();
-        const file = body['file'] as File;
+        const file = body['file'] as any;
 
-        if (!file) {
-            return c.json({ error: 'Nenhum arquivo enviado' }, 400);
+        if (!file || !(file instanceof File)) {
+            console.error('[UPLOAD] Falha: Campo "file" ausente ou inválido');
+            return c.json({ error: 'Nenhum arquivo válido enviado' }, 400);
         }
 
-        const extension = file.name.split('.').pop();
+        console.log(`[UPLOAD] Recebido: ${file.name} (${file.size} bytes) - Tipo: ${file.type}`);
+
+        const extension = file.name.split('.').pop() || 'jpg';
         const fileName = `${uuidv4()}.${extension}`;
         const filePath = join(UPLOADS_DIR, fileName);
 
         const bytes = await file.arrayBuffer();
         await writeFile(filePath, Buffer.from(bytes));
 
-        const url = `${process.env.API_URL || 'http://localhost:3001'}/uploads/${fileName}`;
+        // Garantir que a URL da API não termina com /
+        const apiUrl = (process.env.API_URL || 'http://localhost:3000').replace(/\/$/, '');
+        const url = `${apiUrl}/uploads/${fileName}`;
 
+        console.log(`[UPLOAD] Sucesso! Arquivo salvo em: ${filePath} -> Disponível em: ${url}`);
         return c.json({ url });
     } catch (error: any) {
+        console.error('[UPLOAD] Erro crítico no processo:', error);
         return c.json({ error: error.message }, 500);
     }
 });
@@ -260,7 +268,7 @@ app.post('/api/login', async (c: Context) => {
 
 // --- Rota de Cadastro de Organizador (Com Asaas e Verificação) ---
 app.post('/api/organizers/register', async (c: Context) => {
-    const { name, email, password, cpfCnpj, mobilePhone } = await c.req.json();
+    const { name, email, password, cpfCnpj, mobilePhone, slug, bannerUrl } = await c.req.json();
     const token = uuidv4();
 
     try {
@@ -270,6 +278,16 @@ app.post('/api/organizers/register', async (c: Context) => {
         });
         if (existing) {
             return c.json({ error: 'Já existe um organizador cadastrado com este e-mail.' }, 409);
+        }
+
+        // 0.1 Verificar se o slug já existe
+        if (slug) {
+            const slugExisting = await db.query.organizers.findFirst({
+                where: eq(organizersTable.slug, slug)
+            });
+            if (slugExisting) {
+                return c.json({ error: 'Este link (slug) já está sendo usado por outro produtor.' }, 409);
+            }
         }
 
         // 1. Criar Subconta no Asaas (Opcional/Resiliente)
@@ -292,6 +310,8 @@ app.post('/api/organizers/register', async (c: Context) => {
             passwordHash,
             phone: mobilePhone || null,
             cpf: cpfCnpj || null,
+            slug: slug || name.toLowerCase().replace(/ /g, '-').replace(/[^\w-]/g, ''),
+            bannerUrl: bannerUrl || null,
             asaasId: asaasAccount?.id,
             walletId: asaasAccount?.walletId,
             asaasApiKey: asaasAccount?.apiKey,
@@ -618,6 +638,20 @@ app.get('/api/organizers/slug/:slug', async (c) => {
 app.post('/api/events', async (c: Context) => {
     const data = await c.req.json();
     try {
+        // Check if organizer has a complete profile
+        let finalStatus = data.status || 'draft';
+
+        if (finalStatus === 'published' && data.organizerId) {
+            const organizer = await db.query.organizers.findFirst({
+                where: eq(organizersTable.id, data.organizerId)
+            });
+            // If profile is not complete, force status to 'pending' for admin review
+            if (!organizer?.profileComplete) {
+                finalStatus = 'pending';
+                console.log(`[EVENTS] Produtor ${data.organizerId} com perfil incompleto. Evento forçado para 'pending'.`);
+            }
+        }
+
         const [newEvent] = await db.insert(events).values({
             organizerId: data.organizerId,
             title: data.title,
@@ -633,12 +667,12 @@ app.post('/api/events', async (c: Context) => {
             locationState: data.locationState,
             locationPostalCode: data.locationPostalCode,
             capacity: Number(data.capacity) || 0,
-            status: data.status || 'draft',
+            status: finalStatus,
             imageUrl: data.imageUrl,
             isFeatured: data.isFeatured || false,
             featuredPaymentStatus: data.featuredPaymentStatus || 'none',
         }).returning();
-        return c.json(newEvent);
+        return c.json({ ...newEvent, forcedToPending: finalStatus === 'pending' && data.status === 'published' });
     } catch (error: any) {
         return c.json({ error: error.message }, 400);
     }
@@ -1159,11 +1193,11 @@ app.delete('/api/master/organizers/:id', async (c: Context) => {
     }
 });
 
-// 5. Listar eventos pendentes para aprovação
+// 5. Listar eventos pendentes para aprovação (draft E pending)
 app.get('/api/master/events/pending', async (c: Context) => {
     try {
         const pendingEvents = await db.query.events.findMany({
-            where: eq(events.status, 'draft'),
+            where: or(eq(events.status, 'draft'), eq(events.status, 'pending')),
             with: {
                 organizer: true
             },
@@ -1175,10 +1209,17 @@ app.get('/api/master/events/pending', async (c: Context) => {
     }
 });
 
-// 6. Aprovar evento
+// 6. Aprovar evento (aceita draft, pending → published)
 app.put('/api/master/events/:id/approve', async (c: Context) => {
     const id = c.req.param('id');
     try {
+        const event = await db.query.events.findFirst({ where: eq(events.id, id) });
+        if (!event) return c.json({ error: 'Evento não encontrado' }, 404);
+
+        if (!['draft', 'pending'].includes(event.status as string)) {
+            return c.json({ error: `Evento com status '${event.status}' não pode ser aprovado.` }, 400);
+        }
+
         const [updated] = await db.update(events)
             .set({
                 status: 'published',
@@ -1187,11 +1228,7 @@ app.put('/api/master/events/:id/approve', async (c: Context) => {
             .where(eq(events.id, id))
             .returning();
 
-        if (!updated) {
-            return c.json({ error: 'Evento não encontrado' }, 404);
-        }
-
-        return c.json({ message: 'Evento aprovado com sucesso' });
+        return c.json({ message: 'Evento aprovado com sucesso', event: updated });
     } catch (error: any) {
         return c.json({ error: error.message }, 400);
     }

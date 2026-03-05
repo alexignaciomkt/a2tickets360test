@@ -25,11 +25,8 @@ import {
 import { Button } from '@/components/ui/button';
 import { Card, CardContent } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
-import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { useToast } from '@/components/ui/use-toast';
 import { organizerService } from '@/services/organizerService';
-import { events as mockEvents, Photo } from '@/data/mockData';
-import { Producer, Post } from '@/interfaces/a2types';
 
 const ProducerFanPage = () => {
   const { slug } = useParams();
@@ -41,6 +38,7 @@ const ProducerFanPage = () => {
 
   const [producerData, setProducerData] = useState<any>(null);
   const [posts, setPosts] = useState<any[]>([]);
+  const [producerEvents, setProducerEvents] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
@@ -56,8 +54,12 @@ const ProducerFanPage = () => {
       setProducerData(data);
 
       if (data?.id) {
-        const producerPosts = await organizerService.getPosts(data.id);
-        setPosts(producerPosts);
+        const [postsData, eventsData] = await Promise.all([
+          organizerService.getPosts(data.id),
+          organizerService.getEvents(data.id)
+        ]);
+        setPosts(postsData);
+        setProducerEvents(eventsData.filter((e: any) => e.status === 'published' || e.status === 'active'));
       }
     } catch (err) {
       console.error('Erro ao carregar produtor:', err);
@@ -115,9 +117,6 @@ const ProducerFanPage = () => {
     whatsappNumber: producerData.whatsappNumber
   };
 
-
-  const producerEvents = mockEvents.filter(e => e.organizer.id === '1');
-
   const products = [
     {
       id: '1',
@@ -151,7 +150,6 @@ const ProducerFanPage = () => {
     const message = `Olá! Aqui está o link do Validador Pro para o staff: ${readerLink}`;
     const whatsappUrl = `https://wa.me/?text=${encodeURIComponent(message)}`;
 
-    // Check if it's mobile to use WhatsApp, otherwise copy to clipboard
     if (/Android|iPhone/i.test(navigator.userAgent)) {
       window.open(whatsappUrl, '_blank');
     } else {
@@ -168,7 +166,6 @@ const ProducerFanPage = () => {
       {/* Cover & Header Section */}
       <div className="bg-white shadow-sm border-b">
         <div className="max-w-5xl mx-auto px-4">
-          {/* Cover Photo */}
           <div className="relative h-[250px] md:h-[350px] rounded-b-xl overflow-hidden shadow-inner group">
             <img src={producer.coverImage} className="w-full h-full object-cover" alt="Cover" />
             <div className="absolute inset-0 bg-black/10 group-hover:bg-black/20 transition-all"></div>
@@ -179,7 +176,6 @@ const ProducerFanPage = () => {
             </div>
           </div>
 
-          {/* Profile Header Info */}
           <div className="flex flex-col md:flex-row items-center md:items-end gap-6 -mt-12 md:-mt-20 pb-6 border-b px-8">
             <div className="relative">
               <div className="w-40 h-40 md:w-48 md:h-48 rounded-full border-4 border-white overflow-hidden shadow-lg bg-white">
@@ -202,14 +198,6 @@ const ProducerFanPage = () => {
                 )}
               </div>
               <p className="text-gray-500 font-semibold mb-2">{followersCount.toLocaleString()} seguidores • 12 seguindo</p>
-              <div className="flex justify-center md:justify-start -space-x-2">
-                {[1, 2, 3, 4, 5].map(i => (
-                  <img key={i} src={`https://i.pravatar.cc/40?u=${i + 10}`} className="w-8 h-8 rounded-full border-2 border-white shadow-sm" />
-                ))}
-                <div className="w-8 h-8 rounded-full border-2 border-white bg-gray-100 flex items-center justify-center text-[10px] font-bold text-gray-500 shadow-sm">
-                  +120
-                </div>
-              </div>
             </div>
 
             <div className="flex gap-2">
@@ -223,11 +211,6 @@ const ProducerFanPage = () => {
               <Button variant="outline" className="bg-gray-200 hover:bg-gray-300 border-none font-bold">
                 <MessageCircle className="w-4 h-4 mr-2" /> Mensagem
               </Button>
-              <Link to={`/producer/${slug}/careers`}>
-                <Button className="bg-green-600 hover:bg-green-700 text-white font-bold border-none shadow-sm">
-                  <Briefcase className="w-4 h-4 mr-2" /> Trabalhe Conosco
-                </Button>
-              </Link>
               <Button
                 onClick={handleShareReader}
                 className="bg-indigo-600 hover:bg-indigo-700 text-white font-bold border-none shadow-sm"
@@ -237,7 +220,6 @@ const ProducerFanPage = () => {
             </div>
           </div>
 
-          {/* Facebook-style Nav Tabs */}
           <nav className="flex gap-1 py-1 overflow-x-auto no-scrollbar">
             {['Publicações', 'Sobre', 'Eventos', 'Loja', 'Fotos', 'Vídeos'].map(tab => {
               const tabId = tab === 'Publicações' ? 'timeline' :
@@ -259,11 +241,8 @@ const ProducerFanPage = () => {
         </div>
       </div>
 
-      {/* Main Grid Content */}
       <div className="max-w-5xl mx-auto px-4 py-6 grid grid-cols-1 md:grid-cols-12 gap-6">
-
-        {/* Left Sidebar (Static elements like Facebook) */}
-        <div className="md:col-span-5 lg:col-span-4 space-y-6">
+        <div className="md:col-span-4 space-y-6">
           <Card className="rounded-xl shadow-sm border-none">
             <CardContent className="p-4 space-y-4">
               <h3 className="font-extrabold text-xl">Apresentação</h3>
@@ -277,202 +256,79 @@ const ProducerFanPage = () => {
                   <MapPin className="w-5 h-5 text-gray-400" />
                   <span>{producer.location}</span>
                 </div>
-                <div className="flex items-center gap-3 text-sm text-gray-600">
-                  <Globe className="w-5 h-5 text-gray-400" />
-                  <span className="text-blue-600 hover:underline cursor-pointer">{producer.website}</span>
-                </div>
-              </div>
-              <Button variant="outline" className="w-full font-bold bg-gray-100 hover:bg-gray-200 border-none transition-all">Editar Bio</Button>
-            </CardContent>
-          </Card>
-
-          <Card className="rounded-xl shadow-sm border-none overflow-hidden">
-            <CardContent className="p-4">
-              <div className="flex justify-between items-center mb-4">
-                <h3 className="font-extrabold text-xl">Fotos</h3>
-                <button onClick={() => setActiveTab('photos')} className="text-blue-600 text-sm hover:underline font-medium">Ver todas</button>
-              </div>
-              <div className="grid grid-cols-3 gap-1 rounded-lg overflow-hidden">
-                {[1, 2, 3, 4, 5, 6, 7, 8, 9].map(i => (
-                  <img key={i} src={`https://picsum.photos/seed/prod${i}/200`} className="aspect-square object-cover hover:opacity-90 cursor-pointer transition-opacity" alt="Gallery" />
-                ))}
               </div>
             </CardContent>
           </Card>
         </div>
 
-        {/* Center/Right Feed Area */}
-        <div className="md:col-span-7 lg:col-span-8 space-y-6">
-
+        <div className="md:col-span-8 space-y-6">
           {activeTab === 'timeline' && (
-            <>
-              {/* Create Post Widget */}
-              <Card className="rounded-xl shadow-sm border-none">
-                <CardContent className="p-4 flex gap-3">
-                  <img src={producer.profileImage} className="w-10 h-10 rounded-full shadow-sm" alt="Profile" />
-                  <div className="flex-1 bg-gray-100 hover:bg-gray-200 rounded-full flex items-center px-4 text-gray-500 cursor-pointer transition-colors">
-                    No que você está pensando, {producer.name.split(' ')[0]}?
-                  </div>
-                </CardContent>
-              </Card>
-
-              {/* Feed Posts */}
-              {posts.map(post => (
-                <Card key={post.id} className="rounded-xl shadow-sm border-none overflow-hidden">
-                  <div className="p-4 flex items-center justify-between">
-                    <div className="flex gap-3">
-                      <img src={producer.profileImage} className="w-10 h-10 rounded-full border border-gray-100 shadow-sm" alt="Profile" />
-                      <div>
-                        <div className="flex items-center gap-1">
-                          <h4 className="font-bold text-sm hover:underline cursor-pointer">{producer.name}</h4>
-                          {producer.verified && <div className="w-3 h-3 bg-[#1877F2] rounded-full flex items-center justify-center"><svg className="w-2 h-2 text-white" fill="currentColor" viewBox="0 0 20 20"><path fillRule="evenodd" d="M16.707 5.293a1 1 0 010 1.414l-8 8a1 1 0 01-1.414 0l-4-4a1 1 0 011.414-1.414L8 12.586l7.293-7.293a1 1 0 011.414 0z" clipRule="evenodd" /></svg></div>}
-                        </div>
-                        <p className="text-xs text-gray-500 flex items-center gap-1">
-                          {post.createdAt} • <Globe className="w-3 h-3" />
-                        </p>
-                      </div>
-                    </div>
-                    <button className="p-2 hover:bg-gray-100 rounded-full text-gray-500 transition-colors">
-                      <MoreHorizontal className="w-6 h-6" />
-                    </button>
-                  </div>
-
-                  <div className="px-4 pb-4 text-sm text-gray-800 leading-relaxed">
-                    {post.caption || 'Sem legenda.'}
-                  </div>
-
-                  {post.imageUrl && (
-                    <div className="relative aspect-video overflow-hidden">
-                      <img src={post.imageUrl} className="w-full h-full object-cover" alt="Post" />
-                    </div>
-                  )}
-
-                  {/* Like/Comment Summary (Mocked for now) */}
-                  <div className="p-4 border-b mx-4 flex items-center justify-between text-sm text-gray-500">
-                    <div className="flex items-center gap-1">
-                      <div className="flex -space-x-1">
-                        <div className="w-5 h-5 bg-[#1877F2] rounded-full flex items-center justify-center text-white border border-white shadow-sm">
-                          <ThumbsUp className="w-3 h-3 fill-current" />
-                        </div>
-                        <div className="w-5 h-5 bg-pink-500 rounded-full flex items-center justify-center text-white border border-white shadow-sm">
-                          <Heart className="w-3 h-3 fill-current" />
-                        </div>
-                      </div>
-                      <span className="hover:underline cursor-pointer ml-1">{Math.floor(Math.random() * 500) + 10}</span>
-                    </div>
-                    <div className="flex gap-3">
-                      <span className="hover:underline cursor-pointer">{Math.floor(Math.random() * 50)} comentários</span>
-                      <span className="hover:underline cursor-pointer">{Math.floor(Math.random() * 20)} compartilhamentos</span>
-                    </div>
-                  </div>
-
-                  {/* Actions */}
-                  <div className="px-4 py-1 flex items-center justify-around">
-                    <button
-                      onClick={handleLike}
-                      className={`flex-1 flex items-center justify-center gap-2 py-2 hover:bg-gray-100 rounded-lg font-bold transition-all ${hasLiked ? 'text-[#1877F2]' : 'text-gray-500'}`}
-                    >
-                      <ThumbsUp className={`w-5 h-5 ${hasLiked ? 'fill-current' : ''}`} /> Curtir
-                    </button>
-                    <button className="flex-1 flex items-center justify-center gap-2 py-2 hover:bg-gray-100 rounded-lg text-gray-500 font-bold transition-all">
-                      <MessageCircle className="w-5 h-5" /> Comentar
-                    </button>
-                    <button className="flex-1 flex items-center justify-center gap-2 py-2 hover:bg-gray-100 rounded-lg text-gray-500 font-bold transition-all">
-                      <Share2 className="w-5 h-5" /> Compartilhar
-                    </button>
-                  </div>
+            <div className="space-y-6">
+              {posts.length === 0 ? (
+                <Card className="p-12 text-center text-gray-500 rounded-xl border-none shadow-sm capitalize font-bold">
+                  Nenhuma publicação ainda.
                 </Card>
-              ))}
-            </>
+              ) : (
+                posts.map(post => (
+                  <Card key={post.id} className="rounded-xl shadow-sm border-none overflow-hidden">
+                    <div className="p-4 flex items-center justify-between">
+                      <div className="flex gap-3">
+                        <img src={producer.profileImage} className="w-10 h-10 rounded-full border border-gray-100 shadow-sm" alt="Profile" />
+                        <div>
+                          <h4 className="font-bold text-sm hover:underline cursor-pointer">{producer.name}</h4>
+                          <p className="text-xs text-gray-500 flex items-center gap-1">
+                            {new Date(post.createdAt).toLocaleDateString()} • <Globe className="w-3 h-3" />
+                          </p>
+                        </div>
+                      </div>
+                    </div>
+                    <div className="px-4 pb-4 text-sm text-gray-800 leading-relaxed">{post.caption}</div>
+                    {post.imageUrl && (
+                      <div className="relative aspect-video overflow-hidden">
+                        <img src={post.imageUrl} className="w-full h-full object-cover" alt="Post" />
+                      </div>
+                    )}
+                  </Card>
+                ))
+              )}
+            </div>
           )}
 
           {activeTab === 'events' && (
             <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-              {producerEvents.map(event => (
-                <Card key={event.id} className="overflow-hidden shadow-sm border-none group cursor-pointer">
-                  <div className="relative h-40">
-                    <img src={event.bannerUrl} alt={event.title} className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-500" />
-                    <Badge className="absolute top-2 right-2 bg-green-500 border-none">Vendas Abertas</Badge>
-                  </div>
-                  <CardContent className="p-4">
-                    <h3 className="font-extrabold text-lg mb-2 group-hover:text-[#1877F2] transition-colors">{event.title}</h3>
-                    <div className="space-y-2 text-sm text-gray-600 mb-4">
-                      <div className="flex items-center gap-2">
-                        <Calendar className="h-4 w-4 text-[#1877F2]" />
-                        <span className="font-semibold">{new Date(event.date).toLocaleDateString('pt-BR')} às {event.startTime}</span>
-                      </div>
-                      <div className="flex items-center gap-2">
-                        <MapPin className="h-4 w-4 text-pink-500" />
-                        <span>{typeof event.location === 'string' ? event.location : event.location.name}</span>
-                      </div>
+              {producerEvents.length === 0 ? (
+                <div className="col-span-full">
+                  <Card className="p-12 text-center text-gray-500 rounded-xl border-none shadow-sm capitalize font-bold">
+                    Nenhum evento publicado.
+                  </Card>
+                </div>
+              ) : (
+                producerEvents.map(event => (
+                  <Card key={event.id} className="overflow-hidden shadow-sm border-none group cursor-pointer">
+                    <div className="relative h-40">
+                      <img src={event.bannerUrl || event.imageUrl} alt={event.title} className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-500" />
+                      <Badge className="absolute top-2 right-2 bg-green-500 border-none">Vendas Abertas</Badge>
                     </div>
-                    <div className="flex items-center justify-between pt-4 border-t">
-                      <div>
-                        <p className="text-xs text-gray-500 uppercase font-bold tracking-wider">A partir de</p>
-                        <p className="text-xl font-black text-[#1877F2]">R$ {event.tickets[0]?.price.toFixed(2)}</p>
+                    <CardContent className="p-4">
+                      <h3 className="font-extrabold text-lg mb-2 group-hover:text-[#1877F2] transition-colors">{event.title}</h3>
+                      <div className="space-y-2 text-sm text-gray-600 mb-4">
+                        <div className="flex items-center gap-2">
+                          <Calendar className="h-4 w-4 text-[#1877F2]" />
+                          <span className="font-semibold">{new Date(event.date).toLocaleDateString('pt-BR')}</span>
+                        </div>
+                        <div className="flex items-center gap-2">
+                          <MapPin className="h-4 w-4 text-pink-500" />
+                          <span>{event.locationName || event.location?.name}</span>
+                        </div>
                       </div>
                       <Link to={`/events/${event.id}`}>
-                        <Button className="bg-[#1877F2] hover:bg-[#1567d3] font-bold">Comprar</Button>
+                        <Button className="w-full bg-[#1877F2] hover:bg-[#1567d3] font-bold">Comprar Ingressos</Button>
                       </Link>
-                    </div>
-                  </CardContent>
-                </Card>
-              ))}
+                    </CardContent>
+                  </Card>
+                ))
+              )}
             </div>
-          )}
-
-          {activeTab === 'store' && (
-            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-              {products.map(product => (
-                <Card key={product.id} className="overflow-hidden shadow-sm border-none group hover:shadow-md transition-all">
-                  <div className="relative aspect-square">
-                    <img src={product.image} alt={product.name} className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-500" />
-                    <div className="absolute inset-0 bg-black/40 opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center">
-                      <Button size="sm" className="bg-white text-black hover:bg-gray-100 font-bold">Ver Detalhes</Button>
-                    </div>
-                  </div>
-                  <CardContent className="p-4">
-                    <h3 className="font-bold mb-1 truncate">{product.name}</h3>
-                    <div className="flex items-center gap-1 mb-2">
-                      <div className="flex items-center">
-                        {[...Array(5)].map((_, i) => (
-                          <Star key={i} className={`h-3 w-3 ${i < Math.floor(product.rating) ? 'text-yellow-400 fill-current' : 'text-gray-300'}`} />
-                        ))}
-                      </div>
-                      <span className="text-xs text-gray-500">({product.reviews})</span>
-                    </div>
-                    <div className="flex items-center justify-between mt-4">
-                      <span className="font-black text-lg text-green-600">R$ {product.price.toFixed(2)}</span>
-                      <Button size="sm" variant="outline" className="font-bold border-[#1877F2] text-[#1877F2] hover:bg-[#1877F2] hover:text-white">
-                        <ShoppingBag className="h-4 w-4 mr-1" /> Add
-                      </Button>
-                    </div>
-                  </CardContent>
-                </Card>
-              ))}
-            </div>
-          )}
-
-          {activeTab === 'photos' && (
-            <Card className="rounded-xl shadow-sm border-none p-4">
-              <div className="grid grid-cols-2 lg:grid-cols-3 gap-2">
-                {[...Array(12)].map((_, i) => (
-                  <div key={i} className="aspect-square bg-gray-100 rounded-lg overflow-hidden group relative">
-                    <img
-                      src={`https://picsum.photos/seed/a2p${i}/500`}
-                      alt={`Gallery Item ${i + 1}`}
-                      className="w-full h-full object-cover group-hover:scale-110 transition-transform duration-700 cursor-pointer"
-                    />
-                    <div className="absolute inset-0 bg-black/0 group-hover:bg-black/20 transition-all flex items-center justify-center opacity-0 group-hover:opacity-100">
-                      <div className="flex items-center gap-4 text-white">
-                        <span className="flex items-center gap-1 font-bold"><Heart className="w-4 h-4 fill-current" /> 12</span>
-                        <span className="flex items-center gap-1 font-bold"><MessageCircle className="w-4 h-4 fill-current" /> 4</span>
-                      </div>
-                    </div>
-                  </div>
-                ))}
-              </div>
-            </Card>
           )}
 
           {activeTab === 'about' && (
@@ -480,36 +336,7 @@ const ProducerFanPage = () => {
               <CardContent className="p-6 space-y-6">
                 <h2 className="text-2xl font-black text-gray-900 border-b pb-4">Sobre {producer.name}</h2>
                 <div className="space-y-4">
-                  <div>
-                    <h4 className="font-bold text-gray-500 uppercase text-xs tracking-widest mb-2">Descrição</h4>
-                    <p className="text-gray-700 leading-relaxed font-medium">{producer.description}</p>
-                  </div>
-                  <div className="grid grid-cols-1 md:grid-cols-2 gap-6 pt-4">
-                    <div className="space-y-4">
-                      <h4 className="font-bold text-gray-500 uppercase text-xs tracking-widest">Informações de Contato</h4>
-                      <div className="space-y-3">
-                        <div className="flex items-center gap-3 text-sm">
-                          <div className="p-2 bg-blue-50 text-[#1877F2] rounded-lg"><Phone className="w-4 h-4" /></div>
-                          <span className="font-bold">{producer.phone}</span>
-                        </div>
-                        <div className="flex items-center gap-3 text-sm">
-                          <div className="p-2 bg-pink-50 text-pink-500 rounded-lg"><Mail className="w-4 h-4" /></div>
-                          <span className="font-bold">{producer.email}</span>
-                        </div>
-                        <div className="flex items-center gap-3 text-sm">
-                          <div className="p-2 bg-green-50 text-green-600 rounded-lg"><Globe className="w-4 h-4" /></div>
-                          <span className="font-bold">{producer.website}</span>
-                        </div>
-                      </div>
-                    </div>
-                    <div className="space-y-4">
-                      <h4 className="font-bold text-gray-500 uppercase text-xs tracking-widest">Transparência da Página</h4>
-                      <div className="flex items-center gap-3 text-sm">
-                        <div className="p-2 bg-gray-50 rounded-lg"><Calendar className="w-4 h-4" /></div>
-                        <span className="font-medium text-gray-600">Página criada em Janeiro de 2024</span>
-                      </div>
-                    </div>
-                  </div>
+                  <p className="text-gray-700 leading-relaxed font-medium">{producer.description}</p>
                 </div>
               </CardContent>
             </Card>

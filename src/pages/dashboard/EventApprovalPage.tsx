@@ -110,6 +110,15 @@ const EventApprovalPage = () => {
 
   const renderStatusBadge = (event: any) => {
     const missing = getMissingReport(event);
+    const isPending = event.status === 'pending';
+
+    if (isPending) {
+      return (
+        <Badge className="bg-red-100 text-red-700 hover:bg-red-100 font-bold uppercase text-[10px] tracking-tighter">
+          <AlertTriangle className="w-3 h-3 mr-1" /> Aguard. Aprovação
+        </Badge>
+      );
+    }
     if (missing.length === 0) {
       return (
         <Badge className="bg-emerald-100 text-emerald-700 hover:bg-emerald-100 font-bold uppercase text-[10px] tracking-tighter">
@@ -122,6 +131,13 @@ const EventApprovalPage = () => {
         <AlertTriangle className="w-3 h-3 mr-1" /> Incompleto
       </Badge>
     );
+  };
+
+  const renderEventStatusPill = (status: string) => {
+    if (status === 'pending') {
+      return <span className="text-[9px] font-black text-red-500 uppercase tracking-widest">Produtor Incompleto</span>;
+    }
+    return <span className="text-[9px] font-black text-gray-400 uppercase tracking-widest">Rascunho</span>;
   };
 
   return (
@@ -199,8 +215,9 @@ const EventApprovalPage = () => {
                             </div>
                           </td>
                           <td className="px-6 py-4">
-                            <div className="flex items-center gap-2">
+                            <div className="flex items-center gap-2 flex-col items-start">
                               {renderStatusBadge(event)}
+                              {renderEventStatusPill(event.status)}
                               {missing.length > 0 && (
                                 <button
                                   onClick={() => openValidationModal(event)}

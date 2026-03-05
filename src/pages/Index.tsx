@@ -1,7 +1,7 @@
 
 import React, { useState, useEffect } from 'react';
 import { Link } from 'react-router-dom';
-import { MapPin, Calendar, Star, ChevronLeft, ChevronRight, Music, Mic2, Heart, Laptop, Zap, ArrowRight, Camera, ShoppingBag } from 'lucide-react';
+import { MapPin, Calendar, Star, ChevronLeft, ChevronRight, Music, Mic2, Heart, Laptop, Zap, ArrowRight, Camera, ShoppingBag, Sparkles } from 'lucide-react';
 import { eventService, Event } from '@/services/eventService';
 import MainLayout from '@/components/layout/MainLayout';
 
@@ -141,7 +141,7 @@ const Index = () => {
               <button
                 key={idx}
                 onClick={() => setCurrentSlide(idx)}
-                className={`h-2 transition-all duration-500 rounded-full ${currentSlide === idx ? 'bg-indigo-600 w-16' : 'bg-white/30 w-8 hover:bg-white/50'}`}
+                className={`h-2 transition-all duration-500 rounded-full ${currentSlide === idx ? 'w-12 bg-white' : 'w-2 bg-white/40 hover:bg-white/60'}`}
               />
             ))}
           </div>
@@ -167,6 +167,77 @@ const Index = () => {
                 <span className="font-black text-gray-800 text-sm tracking-tighter uppercase">{cat.label}</span>
               </Link>
             ))}
+          </div>
+        </section>
+
+        {/* Recent Events Section */}
+        <section className="max-w-7xl mx-auto px-4 py-20">
+          <div className="flex flex-col md:flex-row md:items-end justify-between mb-12 gap-6">
+            <div>
+              <div className="inline-block bg-indigo-50 text-indigo-600 px-4 py-1.5 rounded-full text-xs font-black uppercase tracking-widest mb-4">Em Alta</div>
+              <h2 className="text-4xl md:text-5xl font-black text-gray-900 tracking-tighter uppercase">Estreias e Destaques</h2>
+            </div>
+            <Link to="/events" className="flex items-center gap-2 text-indigo-600 font-black text-lg hover:gap-4 transition-all group">
+              Explorar Todos <ChevronRight className="w-6 h-6 group-hover:translate-x-1 transition" />
+            </Link>
+          </div>
+
+          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-10">
+            {allEvents.length === 0 ? (
+              <div className="col-span-full py-20 text-center border-2 border-dashed border-gray-100 rounded-[3rem]">
+                <Sparkles className="w-12 h-12 text-gray-200 mx-auto mb-4" />
+                <p className="text-gray-400 font-bold uppercase tracking-widest text-sm">Nenhum evento disponível no momento</p>
+              </div>
+            ) : (
+              allEvents.slice(0, 8).map(event => (
+                <Link
+                  key={event.id}
+                  to={`/events/${event.id}`}
+                  className="group bg-white rounded-[2.5rem] overflow-hidden shadow-sm hover:shadow-2xl border border-gray-100 transition-all duration-500 flex flex-col h-full hover:-translate-y-2"
+                >
+                  <div className="relative h-48 overflow-hidden">
+                    <img
+                      src={event.bannerUrl || event.imageUrl}
+                      alt={event.title}
+                      className="w-full h-full object-cover group-hover:scale-110 transition-transform duration-700 brightness-95"
+                    />
+                    <div className="absolute top-4 left-4 bg-white/95 backdrop-blur px-4 py-1.5 rounded-full text-[10px] font-black text-indigo-600 shadow-lg uppercase tracking-widest">
+                      {event.category?.toUpperCase() || 'EVENTO'}
+                    </div>
+                  </div>
+                  <div className="p-5 flex flex-col flex-1">
+                    <div className="flex items-center gap-2 text-[10px] text-orange-500 font-black mb-3 uppercase tracking-tighter">
+                      <Star className="w-3 h-3 fill-current" />
+                      <span>Verificado</span>
+                    </div>
+                    <h3 className="font-black text-lg text-gray-900 mb-4 line-clamp-2 leading-tight group-hover:text-indigo-600 transition-colors uppercase tracking-tight">{event.title}</h3>
+
+                    <div className="space-y-2 mt-auto mb-6">
+                      <div className="flex items-center gap-3 text-gray-400 font-bold text-xs uppercase tracking-tight">
+                        <div className="p-1.5 bg-gray-50 rounded-lg"><Calendar className="w-4 h-4 text-indigo-500" /></div>
+                        <span>{new Date(event.date).toLocaleDateString()}</span>
+                      </div>
+                      <div className="flex items-center gap-3 text-gray-400 font-bold text-xs uppercase tracking-tight">
+                        <div className="p-1.5 bg-gray-50 rounded-lg"><MapPin className="w-4 h-4 text-indigo-500" /></div>
+                        <span className="line-clamp-1">{event.location?.city || 'Brasil'}</span>
+                      </div>
+                    </div>
+
+                    <div className="flex items-center justify-between border-t border-gray-50 pt-4">
+                      <div className="flex flex-col">
+                        <span className="text-gray-400 text-[10px] font-black uppercase tracking-widest mb-0.5">A partir de</span>
+                        <span className="text-2xl font-black text-indigo-600 tracking-tighter">
+                          R$ {event.tickets && event.tickets[0] ? event.tickets[0].price.toFixed(2) : '0,00'}
+                        </span>
+                      </div>
+                      <div className="w-10 h-10 bg-indigo-50 text-indigo-600 rounded-xl flex items-center justify-center group-hover:bg-indigo-600 group-hover:text-white transition-all duration-300 shadow-inner group-hover:shadow-lg group-hover:shadow-indigo-200">
+                        <ChevronRight className="w-6 h-6" />
+                      </div>
+                    </div>
+                  </div>
+                </Link>
+              ))
+            )}
           </div>
         </section>
 

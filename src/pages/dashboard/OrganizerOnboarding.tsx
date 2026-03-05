@@ -71,22 +71,38 @@ const OrganizerOnboarding = () => {
 
     const [lastSavedData, setLastSavedData] = useState<string>('');
 
-    useEffect(() => {
-        if (user?.id) {
-            loadProfile();
-        }
-    }, [user]);
-
     // Auto-save logic with debounce
     useEffect(() => {
         const currentDataStr = JSON.stringify(formData);
+
+        // Persistência local imediata para segurança do usuário
+        if (user?.id) {
+            localStorage.setItem(`onboarding_draft_${user.id}`, currentDataStr);
+        }
+
         if (lastSavedData && currentDataStr !== lastSavedData && !loading && !saving) {
             const timer = setTimeout(() => {
                 saveProfile();
             }, 2000); // 2 seconds debounce
             return () => clearTimeout(timer);
         }
-    }, [formData, loading]);
+    }, [formData, loading, user?.id]);
+
+    useEffect(() => {
+        if (user?.id) {
+            // Tenta recuperar rascunho do localStorage antes de buscar do banco
+            const localDraft = localStorage.getItem(`onboarding_draft_${user.id}`);
+            if (localDraft) {
+                try {
+                    const parsed = JSON.parse(localDraft);
+                    setFormData(prev => ({ ...prev, ...parsed }));
+                } catch (e) {
+                    console.error('Erro ao ler rascunho local:', e);
+                }
+            }
+            loadProfile();
+        }
+    }, [user?.id]);
 
     const loadProfile = async () => {
         try {
@@ -140,8 +156,13 @@ const OrganizerOnboarding = () => {
             try {
                 // Upload real para o servidor
                 const { url } = await organizerService.uploadImage(file);
+
+                // Atualiza o dado no formulário para persistência no banco
                 setFormData(prev => ({ ...prev, [field]: url }));
-                setPreviews(prev => ({ ...prev, [previewKey]: url })); // Atualiza para o URL real
+
+                // NOTA: Mantemos o preview local (localUrl) para evitar "piscar" ou quebra se a API_URL estiver incorreta (VPS)
+                // Apenas se não houver erro de upload, confirmamos a URL real no estado, mas o Blob URL continua sendo válido no browser
+                console.log(`[UPLOAD] URL persistida no banco: ${url}`);
             } catch (err) {
                 console.error('Erro no upload:', err);
                 toast({

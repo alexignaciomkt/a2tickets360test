@@ -19,7 +19,7 @@ export interface Event {
     };
   };
   capacity: number;
-  status: 'draft' | 'published' | 'active' | 'completed' | 'cancelled';
+  status: 'draft' | 'pending' | 'published' | 'active' | 'completed' | 'cancelled';
   imageUrl: string;
   floorPlanUrl?: string;
   isFeatured?: boolean;
